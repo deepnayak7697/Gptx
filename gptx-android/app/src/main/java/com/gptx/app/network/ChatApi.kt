@@ -34,13 +34,18 @@ class ChatApi {
             .build()
 
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw Exception("HTTP error: ${response.code}")
+            if (!response.isSuccessful) {
+                throw Exception("HTTP error: ${response.code} - ${response.message}")
+            }
+            
             response.body?.let { responseBody ->
                 responseBody.byteStream().bufferedReader().useLines { lines ->
                     lines.forEach { line ->
-                        if (line.startsWith("data: ") && !line.contains("[DONE]")) {
-                            val data = line.substringAfter("data: ")
-                            emit(data)
+                        if (line.startsWith("data: ") && line != "data: [DONE]") {
+                            val jsonData = line.substringAfter("data: ")
+                            if (jsonData.isNotBlank()) {
+                                emit(jsonData)
+                            }
                         }
                     }
                 }

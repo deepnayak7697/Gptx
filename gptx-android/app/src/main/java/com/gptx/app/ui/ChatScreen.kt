@@ -21,6 +21,20 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val scope = rememberCoroutineScope()
     var userInput by remember { mutableStateOf("") }
 
+    // Show error dialog if there's an error
+    if (uiState.error != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearError() },
+            title = { Text("Error") },
+            text = { Text(uiState.error!!) },
+            confirmButton = {
+                Button(onClick = { viewModel.clearError() }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             scope.launch { listState.animateScrollToItem(uiState.messages.size - 1) }
@@ -28,6 +42,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
     Column(Modifier.fillMaxSize()) {
+        // Debug info
+        if (uiState.isStreaming) {
+            Text(
+                text = "Streaming...",
+                modifier = Modifier.padding(8.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
         LazyColumn(
             modifier = Modifier.weight(1f),
             state = listState,
@@ -47,17 +70,28 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 value = userInput,
                 onValueChange = { userInput = it },
                 modifier = Modifier.weight(1f),
-                label = { Text("Enter message") }
+                label = { Text("Enter message") },
+                enabled = !uiState.isStreaming
             )
             Spacer(modifier = Modifier.width(8.dp))
             Button(
                 onClick = { 
-                    viewModel.sendMessage(userInput)
-                    userInput = "" 
+                    if (userInput.isNotBlank()) {
+                        viewModel.sendMessage(userInput)
+                        userInput = "" 
+                    }
                 },
-                enabled = !uiState.isStreaming
+                enabled = !uiState.isStreaming && userInput.isNotBlank()
             ) {
-                Icon(Icons.Default.Send, contentDescription = "Send")
+                if (uiState.isStreaming) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Default.Send, contentDescription = "Send")
+                }
             }
         }
     }
@@ -67,7 +101,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
 fun MessageBubble(message: com.gptx.app.model.Message) {
     val isUser = message.role == "user"
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         Surface(
@@ -77,10 +113,16 @@ fun MessageBubble(message: com.gptx.app.model.Message) {
             modifier = Modifier.widthIn(max = 300.dp)
         ) {
             Text(
-                text = message.content,
+                text = message.content.ifBlank { "..." },
                 modifier = Modifier.padding(12.dp),
                 fontSize = 15.sp
             )
         }
+        Text(
+            text = message.role,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

@@ -7,9 +7,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class ChatViewModel : ViewModel() {
     private val repository = ChatRepository()
+    private val json = Json { ignoreUnknownKeys = true }
 
     data class ChatUiState(
         val messages: List<Message> = emptyList(),
@@ -36,16 +40,29 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 repository.sendMessage(userInput).collect { chunk ->
-                    _uiState.update { currentState ->
-                        val currentMessages = currentState.messages.toMutableList()
-                        if (currentMessages.isNotEmpty()) {
-                            val lastMessage = currentMessages.last()
-                            if (lastMessage.role == "assistant") {
-                                currentMessages[currentMessages.size - 1] = 
-                                    lastMessage.copy(content = lastMessage.content + chunk)
+                    try {
+                        // Parse the JSON chunk to extract content
+                        val jsonElement = json.parseToJsonElement(chunk)
+                        val choices = jsonElement.jsonObject["choices"]?.jsonObject
+                        val delta = choices?.get("delta")?.jsonObject
+                        val content = delta?.get("content")?.jsonPrimitive?.content ?: ""
+                        
+                        if (content.isNotBlank()) {
+                            _uiState.update { currentState ->
+                                val currentMessages = currentState.messages.toMutableList()
+                                if (currentMessages.isNotEmpty()) {
+                                    val lastMessage = currentMessages.last()
+                                    if (lastMessage.role == "assistant") {
+                                        currentMessages[currentMessages.size - 1] = 
+                                            lastMessage.copy(content = lastMessage.content + content)
+                                    }
+                                }
+                                currentState.copy(messages = currentMessages)
                             }
                         }
-                        currentState.copy(messages = currentMessages)
+                    } catch (e: Exception) {
+                        // Ignore JSON parsing errors for individual chunks
+                        println("Error parsing chunk: ${e.message}")
                     }
                 }
             } catch (e: Exception) {
