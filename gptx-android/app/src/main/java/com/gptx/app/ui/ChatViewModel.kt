@@ -2,14 +2,13 @@ package com.gptx.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gptx.app.model.Message
+import com.gptx.app.model.StreamResponse
 import com.gptx.app.repo.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 class ChatViewModel : ViewModel() {
     private val repository = ChatRepository()
@@ -41,11 +40,9 @@ class ChatViewModel : ViewModel() {
             try {
                 repository.sendMessage(userInput).collect { chunk ->
                     try {
-                        // Parse the JSON chunk to extract content
-                        val jsonElement = json.parseToJsonElement(chunk)
-                        val choices = jsonElement.jsonObject["choices"]?.jsonObject
-                        val delta = choices?.get("delta")?.jsonObject
-                        val content = delta?.get("content")?.jsonPrimitive?.content ?: ""
+                        // Parse the JSON chunk using our data class
+                        val streamResponse = json.decodeFromString<StreamResponse>(chunk)
+                        val content = streamResponse.choices.firstOrNull()?.delta?.content ?: ""
                         
                         if (content.isNotBlank()) {
                             _uiState.update { currentState ->
@@ -61,8 +58,10 @@ class ChatViewModel : ViewModel() {
                             }
                         }
                     } catch (e: Exception) {
-                        // Ignore JSON parsing errors for individual chunks
-                        println("Error parsing chunk: ${e.message}")
+                        // Ignore parsing errors for empty chunks or malformed data
+                        if (chunk.isNotBlank()) {
+                            println("Error parsing chunk '$chunk': ${e.message}")
+                        }
                     }
                 }
             } catch (e: Exception) {

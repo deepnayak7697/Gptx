@@ -41,10 +41,19 @@ class ChatApi {
             response.body?.let { responseBody ->
                 responseBody.byteStream().bufferedReader().useLines { lines ->
                     lines.forEach { line ->
-                        if (line.startsWith("data: ") && line != "data: [DONE]") {
-                            val jsonData = line.substringAfter("data: ")
-                            if (jsonData.isNotBlank()) {
-                                emit(jsonData)
+                        // Handle Server-Sent Events format
+                        when {
+                            line.startsWith("data: ") && line != "data: [DONE]" -> {
+                                val jsonData = line.substringAfter("data: ")
+                                if (jsonData.isNotBlank() && jsonData != "[DONE]") {
+                                    emit(jsonData)
+                                }
+                            }
+                            line.trim().isNotBlank() && !line.startsWith(":") -> {
+                                // Some SSE implementations might not use "data: " prefix
+                                if (line != "[DONE]") {
+                                    emit(line)
+                                }
                             }
                         }
                     }
