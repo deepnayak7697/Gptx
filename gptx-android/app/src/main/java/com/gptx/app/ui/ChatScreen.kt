@@ -155,3 +155,79 @@ fun MessageBubble(message: com.gptx.app.model.Message) {
         }
     }
 }
+spacedBy(8.dp)
+                ) {
+                    IconButton(
+                        onClick = { imagePicker.launch("image/*") },
+                        enabled = !state.isStreaming
+                    ) {
+                        Icon(Icons.Default.Image, "Attach image", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Ask me anything...") },
+                        enabled = !state.isStreaming,
+                        shape = RoundedCornerShape(24.dp),
+                        maxLines = 5
+                    )
+                    FilledIconButton(
+                        onClick = {
+                            if (input.isNotBlank()) {
+                                viewModel.sendMessage(input, uploadedImageUrl)
+                                input = ""
+                                selectedImageUri = null
+                                uploadedImageUrl = null
+                            }
+                        },
+                        enabled = !state.isStreaming && input.isNotBlank()
+                    ) {
+                        Icon(Icons.Default.Send, "Send")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MessageBubble(message: com.gptx.app.model.Message) {
+    val isUser = message.role == "user"
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+    ) {
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (isUser) 16.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 16.dp
+            ),
+            color = if (isUser) MaterialTheme.colorScheme.primaryContainer 
+                   else MaterialTheme.colorScheme.secondaryContainer,
+            modifier = Modifier.widthIn(max = 320.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                if (message.imageUrl != null) {
+                    AsyncImage(
+                        model = message.imageUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                Text(
+                    text = message.content,
+                    fontSize = 15.sp,
+                    lineHeight = 20.sp
+                )
+            }
+        }
+    }
+}
