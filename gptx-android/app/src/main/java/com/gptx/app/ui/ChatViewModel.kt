@@ -1,6 +1,5 @@
 package com.gptx.app.ui
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.gptx.app.model.Message
 import com.gptx.app.repo.ChatRepository
@@ -9,7 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
+class ChatViewModel : ViewModel() {
+    private val repository = ChatRepository()
 
     data class ChatUiState(
         val messages: List<Message> = emptyList(),
@@ -35,7 +35,19 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
 
         viewModelScope.launch {
             try {
-                repository.sendMessage(userInput).collect { /* Stream handled in repo */ }
+                repository.sendMessage(userInput).collect { chunk ->
+                    _uiState.update { currentState ->
+                        val currentMessages = currentState.messages.toMutableList()
+                        if (currentMessages.isNotEmpty()) {
+                            val lastMessage = currentMessages.last()
+                            if (lastMessage.role == "assistant") {
+                                currentMessages[currentMessages.size - 1] = 
+                                    lastMessage.copy(content = lastMessage.content + chunk)
+                            }
+                        }
+                        currentState.copy(messages = currentMessages)
+                    }
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to send message: ${e.message}") }
             } finally {
@@ -50,12 +62,5 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
 
     fun clearHistory() {
         repository.clearHistory()
-    }
-
-    class Factory : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ChatViewModel(ChatRepository()) as T
-        }
     }
 }

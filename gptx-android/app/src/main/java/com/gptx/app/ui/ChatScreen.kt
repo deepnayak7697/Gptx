@@ -1,6 +1,8 @@
 package com.gptx.app.ui
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
@@ -10,12 +12,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gptx.app.model.Message
 import kotlinx.coroutines.launch
 
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
-    val uiState by viewModel.uiState
+    val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var userInput by remember { mutableStateOf("") }
@@ -27,20 +28,35 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.weight(1f), state = listState, contentPadding = PaddingValues(16.dp)) {
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            state = listState,
+            contentPadding = PaddingValues(16.dp)
+        ) {
             items(uiState.messages) { message ->
                 MessageBubble(message = message)
             }
         }
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             OutlinedTextField(
                 value = userInput,
                 onValueChange = { userInput = it },
                 modifier = Modifier.weight(1f),
                 label = { Text("Enter message") }
             )
-            Spacer(Modifier.width(8.dp))
-            Button(onClick = { viewModel.sendMessage(userInput); userInput = "" }) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = { 
+                    viewModel.sendMessage(userInput)
+                    userInput = "" 
+                },
+                enabled = !uiState.isStreaming
+            ) {
                 Icon(Icons.Default.Send, contentDescription = "Send")
             }
         }
@@ -48,15 +64,23 @@ fun ChatScreen(viewModel: ChatViewModel) {
 }
 
 @Composable
-fun MessageBubble(message: Message) {
+fun MessageBubble(message: com.gptx.app.model.Message) {
     val isUser = message.role == "user"
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+    ) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+            color = if (isUser) MaterialTheme.colorScheme.primaryContainer 
+                   else MaterialTheme.colorScheme.secondaryContainer,
             modifier = Modifier.widthIn(max = 300.dp)
         ) {
-            Text(message.content, Modifier.padding(12.dp), fontSize = 15.sp)
+            Text(
+                text = message.content,
+                modifier = Modifier.padding(12.dp),
+                fontSize = 15.sp
+            )
         }
     }
 }

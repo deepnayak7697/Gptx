@@ -5,7 +5,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gptx.app.ui.ChatScreen
@@ -18,7 +17,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             GPTXTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory())
+                    val viewModel: ChatViewModel = viewModel()
                     ChatScreen(viewModel = viewModel)
                 }
             }
