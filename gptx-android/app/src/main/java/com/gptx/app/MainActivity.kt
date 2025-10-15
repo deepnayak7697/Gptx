@@ -14,7 +14,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory)
+                val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory())
                 Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
                     ChatScreen(Modifier.padding(padding), viewModel)
                 }
