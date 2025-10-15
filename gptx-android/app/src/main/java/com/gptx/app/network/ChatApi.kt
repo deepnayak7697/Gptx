@@ -15,12 +15,20 @@ class ChatApi {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun streamChat(messages: List<Message>): Flow<String> = flow {
-        val body = json.encodeToString(mapOf("messages" to messages, "stream" to true)).toRequestBody("application/json".toMediaType())
+        val requestBody = mapOf(
+            "model" to "gpt-4o-mini",
+            "messages" to messages,
+            "stream" to true
+        )
+        val body = json.encodeToString(requestBody).toRequestBody("application/json".toMediaType())
+
         val request = Request.Builder()
             .url(BuildConfig.API_BASE_URL + "/v1/chat")
             .addHeader("X-App-Key", BuildConfig.APP_KEY)
+            .addHeader("Content-Type", "application/json")
             .post(body)
             .build()
+
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw Exception("HTTP error: ${response.code} ${response.message}")
             val source = response.body?.source() ?: throw Exception("Response body is null")

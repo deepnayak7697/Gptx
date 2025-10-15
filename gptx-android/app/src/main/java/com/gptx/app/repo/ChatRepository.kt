@@ -40,7 +40,7 @@ class ChatRepository {
                     }
                 }
             } catch (e: Exception) {
-                // Ignore parsing errors for non-content chunks
+                // Ignore parsing errors
             }
         }
     }

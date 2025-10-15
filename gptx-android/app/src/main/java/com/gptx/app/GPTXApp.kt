@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 
 class GPTXApp : Application() {
     companion object {
-        lateinit instance: GPTXApp
+        lateinit var instance: GPTXApp
     }
     val okHttpClient = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
