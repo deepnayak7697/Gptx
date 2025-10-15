@@ -5,6 +5,5 @@ import kotlinx.serialization.Serializable
 data class Message(
     val role: String,
     val content: String,
-    val imageUrl: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val imageUrl: String? = null
 )

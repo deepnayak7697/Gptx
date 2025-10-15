@@ -1,65 +1,60 @@
 package com.gptx.app.ui
-import androidx.lifecycle.*
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.gptx.app.model.Message
 import com.gptx.app.repo.ChatRepository
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.InputStream
 
-class ChatViewModel(private val repo: ChatRepository) : ViewModel() {
-    data class UiState(
+class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
+
+    data class ChatUiState(
         val messages: List<Message> = emptyList(),
         val isStreaming: Boolean = false,
-        val error: String? = null,
-        val uploadingImage: Boolean = false
+        val error: String? = null
     )
-    
-    private val _uiState = MutableStateFlow(UiState())
+
+    private val _uiState = MutableStateFlow(ChatUiState())
     val uiState = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            repo.messages.collect { msgs ->
-                _uiState.update { it.copy(messages = msgs) }
+            repository.messages.collect { messages ->
+                _uiState.update { it.copy(messages = messages) }
             }
         }
     }
 
-    fun sendMessage(input: String, imageUrl: String? = null) {
-        if (input.isBlank() || _uiState.value.isStreaming) return
+    fun sendMessage(userInput: String) {
+        if (userInput.isBlank() || _uiState.value.isStreaming) return
+
         _uiState.update { it.copy(isStreaming = true, error = null) }
+
         viewModelScope.launch {
-            runCatching { repo.sendMessage(input, imageUrl).collect {} }
-                .onFailure { err -> _uiState.update { it.copy(error = "Error: ${err.message}") } }
-            _uiState.update { it.copy(isStreaming = false) }
+            try {
+                repository.sendMessage(userInput).collect { /* Stream handled in repo */ }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Failed to send message: ${e.message}") }
+            } finally {
+                _uiState.update { it.copy(isStreaming = false) }
+            }
         }
     }
 
-    fun uploadImage(inputStream: InputStream, mimeType: String, onSuccess: (String) -> Unit) {
-        _uiState.update { it.copy(uploadingImage = true, error = null) }
-        viewModelScope.launch {
-            runCatching { repo.uploadImage(inputStream, mimeType) }
-                .onSuccess { url -> 
-                    onSuccess(url)
-                    _uiState.update { it.copy(uploadingImage = false) }
-                }
-                .onFailure { err -> 
-                    _uiState.update { it.copy(uploadingImage = false, error = "Upload failed: ${err.message}") }
-                }
-        }
-    }
-
-    fun clearHistory() {
-        repo.clearHistory()
-    }
-
-    fun dismissError() {
+    fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
 
+    fun clearHistory() {
+        repository.clearHistory()
+    }
+
     class Factory : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            @Suppress("UNCHECKED_CAST")
             return ChatViewModel(ChatRepository()) as T
         }
     }
