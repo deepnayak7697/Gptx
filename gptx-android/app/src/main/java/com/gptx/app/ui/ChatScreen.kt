@@ -8,8 +8,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -40,7 +39,9 @@ fun ChatScreen(viewModel: ChatViewModel, onToggleTheme: () -> Unit) {
     var uploadedImageUrl by remember { mutableStateOf<String?>(null) }
     var showMenu by remember { mutableStateOf(false) }
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
         uri?.let {
             selectedImageUri = it
             context.contentResolver.openInputStream(it)?.use { stream ->
@@ -65,7 +66,14 @@ fun ChatScreen(viewModel: ChatViewModel, onToggleTheme: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.ChatBubble, null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(8.dp))
-                        Text("GPTX", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                        Text("GPTX v2.0", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                        Spacer(Modifier.width(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text("Advanced", fontSize = 10.sp, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                        }
                     }
                 },
                 actions = {
@@ -82,10 +90,25 @@ fun ChatScreen(viewModel: ChatViewModel, onToggleTheme: () -> Unit) {
                                 onClick = { viewModel.clearHistory(); showMenu = false },
                                 leadingIcon = { Icon(Icons.Default.Delete, null) }
                             )
+                            DropdownMenuItem(
+                                text = { Text("Export Chat") },
+                                onClick = {
+                                    val text = state.messages.joinToString("\n\n") { 
+                                        "${it.role.uppercase()}: ${it.content}" 
+                                    }
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, text)
+                                        putExtra(Intent.EXTRA_SUBJECT, "GPTX Chat Export")
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Export chat"))
+                                    showMenu = false
+                                },
+                                leadingIcon = { Icon(Icons.Default.Share, null) }
+                            )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                }
             )
         }
     ) { padding ->
@@ -99,14 +122,41 @@ fun ChatScreen(viewModel: ChatViewModel, onToggleTheme: () -> Unit) {
                 items(state.messages) { msg ->
                     MessageBubble(msg)
                 }
+                if (state.isStreaming) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Start
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    repeat(3) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.onSecondaryContainer)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
-            state.error?.let { error ->
+            AnimatedVisibility(visible = state.error != null) {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Error, null)
+                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(8.dp))
-                        Text(error, Modifier.weight(1f))
+                        Text(state.error ?: "", Modifier.weight(1f), fontSize = 14.sp)
                         IconButton(onClick = { viewModel.dismissError() }) {
                             Icon(Icons.Default.Close, "Dismiss")
                         }
@@ -114,48 +164,41 @@ fun ChatScreen(viewModel: ChatViewModel, onToggleTheme: () -> Unit) {
                 }
             }
 
-            Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 3.dp) {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom) {
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = { input = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Ask me anything...") },
-                        enabled = !state.isStreaming,
-                        shape = RoundedCornerShape(24.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    FilledIconButton(
-                        onClick = {
-                            if (input.isNotBlank()) {
-                                viewModel.sendMessage(input)
-                                input = ""
-                            }
-                        },
-                        enabled = !state.isStreaming && input.isNotBlank()
-                    ) {
-                        Icon(Icons.Default.Send, "Send")
+            AnimatedVisibility(visible = selectedImageUri != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(
+                            model = selectedImageUri,
+                            contentDescription = null,
+                            modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        if (state.uploadingImage) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Uploading...")
+                        } else {
+                            Text("Image ready", Modifier.weight(1f))
+                        }
+                        IconButton(onClick = {
+                            selectedImageUri = null
+                            uploadedImageUrl = null
+                        }) {
+                            Icon(Icons.Default.Close, "Remove")
+                        }
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun MessageBubble(message: com.gptx.app.model.Message) {
-    val isUser = message.role == "user"
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-            modifier = Modifier.widthIn(max = 300.dp)
-        ) {
-            Text(message.content, Modifier.padding(12.dp), fontSize = 15.sp)
-        }
-    }
-}
-spacedBy(8.dp)
+            Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 3.dp) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     IconButton(
                         onClick = { imagePicker.launch("image/*") },
@@ -225,7 +268,9 @@ fun MessageBubble(message: com.gptx.app.model.Message) {
                 Text(
                     text = message.content,
                     fontSize = 15.sp,
-                    lineHeight = 20.sp
+                    lineHeight = 20.sp,
+                    color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer 
+                           else MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
         }

@@ -3,8 +3,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -16,12 +17,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            var darkMode by remember { mutableStateOf(isSystemInDarkTheme()) }
-            GPTXTheme(darkTheme = darkMode) {
+            AppContent()
+        }
+    }
+
+    @Composable
+    private fun AppContent() {
+        var darkMode by remember { mutableStateOf(isSystemInDarkTheme()) }
+        GPTXTheme(darkTheme = darkMode) {
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory())
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    ChatScreen(viewModel = viewModel, onToggleTheme = { darkMode = !darkMode })
-                }
+                ChatScreen(viewModel = viewModel, onToggleTheme = { darkMode = !darkMode })
             }
         }
     }
