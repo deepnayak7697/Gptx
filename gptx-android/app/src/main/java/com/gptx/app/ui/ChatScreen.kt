@@ -1,4 +1,9 @@
 package com.gptx.app.ui
+
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,9 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gptx.app.model.Message
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,13 +52,27 @@ fun ChatScreen(viewModel: ChatViewModel, onToggleTheme: () -> Unit) {
         Column(Modifier.padding(padding).fillMaxSize()) {
             LazyColumn(Modifier.weight(1f), state = listState) {
                 items(uiState.messages) { message ->
-                    Text(message.content, Modifier.padding(8.dp))
+                    MessageBubble(message = message)
                 }
             }
             Row(Modifier.fillMaxWidth()) {
                 OutlinedTextField(value = userInput, onValueChange = { userInput = it }, Modifier.weight(1f))
                 Button(onClick = { viewModel.sendMessage(userInput); userInput = "" }) { Icon(Icons.Default.Send, null) }
             }
+        }
+    }
+}
+
+@Composable
+fun MessageBubble(message: Message) {
+    val isUser = message.role == "user"
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+            modifier = Modifier.widthIn(max = 300.dp)
+        ) {
+            Text(message.content, Modifier.padding(12.dp), fontSize = 15.sp)
         }
     }
 }
