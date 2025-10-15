@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 
 class ChatApi {
     private val client = OkHttpClient.Builder()
-        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .readTimeout(30, TimeUnit.SECONDS) // Set a reasonable timeout
         .build()
     
     private val json = Json { ignoreUnknownKeys = true }
@@ -41,18 +41,19 @@ class ChatApi {
             response.body?.let { responseBody ->
                 responseBody.byteStream().bufferedReader().useLines { lines ->
                     lines.forEach { line ->
-                        // Handle Server-Sent Events format
-                        when {
-                            line.startsWith("data: ") && line != "data: [DONE]" -> {
-                                val jsonData = line.substringAfter("data: ")
-                                if (jsonData.isNotBlank() && jsonData != "[DONE]") {
-                                    emit(jsonData)
+                        if (line.isNotBlank()) {
+                            when {
+                                line.startsWith("data: ") -> {
+                                    val data = line.substringAfter("data: ")
+                                    if (data.isNotBlank() && data != "[DONE]") {
+                                        emit(data)
+                                    }
                                 }
-                            }
-                            line.trim().isNotBlank() && !line.startsWith(":") -> {
-                                // Some SSE implementations might not use "data: " prefix
-                                if (line != "[DONE]") {
-                                    emit(line)
+                                line.trim().startsWith("{") -> {
+                                    // Direct JSON object
+                                    if (line != "[DONE]") {
+                                        emit(line.trim())
+                                    }
                                 }
                             }
                         }

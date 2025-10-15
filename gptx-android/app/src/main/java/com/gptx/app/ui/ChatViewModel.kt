@@ -2,17 +2,14 @@ package com.gptx.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gptx.app.model.Message
-import com.gptx.app.model.StreamResponse
 import com.gptx.app.repo.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 
 class ChatViewModel : ViewModel() {
     private val repository = ChatRepository()
-    private val json = Json { ignoreUnknownKeys = true }
 
     data class ChatUiState(
         val messages: List<Message> = emptyList(),
@@ -39,28 +36,19 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 repository.sendMessage(userInput).collect { chunk ->
-                    try {
-                        // Parse the JSON chunk using our data class
-                        val streamResponse = json.decodeFromString<StreamResponse>(chunk)
-                        val content = streamResponse.choices.firstOrNull()?.delta?.content ?: ""
-                        
-                        if (content.isNotBlank()) {
-                            _uiState.update { currentState ->
-                                val currentMessages = currentState.messages.toMutableList()
-                                if (currentMessages.isNotEmpty()) {
-                                    val lastMessage = currentMessages.last()
-                                    if (lastMessage.role == "assistant") {
-                                        currentMessages[currentMessages.size - 1] = 
-                                            lastMessage.copy(content = lastMessage.content + content)
-                                    }
+                    // Simple string extraction - look for "content" in the JSON
+                    val content = extractContentFromJson(chunk)
+                    if (content.isNotBlank()) {
+                        _uiState.update { currentState ->
+                            val currentMessages = currentState.messages.toMutableList()
+                            if (currentMessages.isNotEmpty()) {
+                                val lastMessage = currentMessages.last()
+                                if (lastMessage.role == "assistant") {
+                                    currentMessages[currentMessages.size - 1] = 
+                                        lastMessage.copy(content = lastMessage.content + content)
                                 }
-                                currentState.copy(messages = currentMessages)
                             }
-                        }
-                    } catch (e: Exception) {
-                        // Ignore parsing errors for empty chunks or malformed data
-                        if (chunk.isNotBlank()) {
-                            println("Error parsing chunk '$chunk': ${e.message}")
+                            currentState.copy(messages = currentMessages)
                         }
                     }
                 }
@@ -69,6 +57,17 @@ class ChatViewModel : ViewModel() {
             } finally {
                 _uiState.update { it.copy(isStreaming = false) }
             }
+        }
+    }
+
+    private fun extractContentFromJson(jsonString: String): String {
+        return try {
+            // Simple regex to extract content from JSON
+            val pattern = """"content"\s*:\s*"([^"]*)"""".toRegex()
+            val match = pattern.find(jsonString)
+            match?.groupValues?.get(1) ?: ""
+        } catch (e: Exception) {
+            ""
         }
     }
 

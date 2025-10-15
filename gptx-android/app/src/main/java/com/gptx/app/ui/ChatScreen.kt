@@ -20,6 +20,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var userInput by remember { mutableStateOf("") }
+    var debugInfo by remember { mutableStateOf("") }
 
     // Show error dialog if there's an error
     if (uiState.error != null) {
@@ -29,16 +30,19 @@ fun ChatScreen(viewModel: ChatViewModel) {
             text = { 
                 Column {
                     Text(uiState.error!!)
-                    if (uiState.error!!.contains("Serializer")) {
+                    if (debugInfo.isNotBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("This is a JSON parsing issue. Check the response format.", 
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.error)
+                        Text("Debug: $debugInfo", 
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },
             confirmButton = {
-                Button(onClick = { viewModel.clearError() }) {
+                Button(onClick = { 
+                    viewModel.clearError()
+                    debugInfo = ""
+                }) {
                     Text("OK")
                 }
             }
@@ -55,7 +59,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         // Debug info
         if (uiState.isStreaming) {
             Text(
-                text = "🔄 Streaming response...",
+                text = "🔄 Streaming...",
                 modifier = Modifier.padding(8.dp),
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 12.sp
@@ -71,6 +75,31 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 MessageBubble(message = message)
             }
         }
+        
+        // Debug button to see what's happening
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Button(
+                onClick = { 
+                    debugInfo = "Messages: ${uiState.messages.size}, Last: ${uiState.messages.lastOrNull()?.content}"
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Text("Debug")
+            }
+            
+            Button(
+                onClick = { viewModel.clearHistory() },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Clear")
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -129,5 +158,11 @@ fun MessageBubble(message: com.gptx.app.model.Message) {
                 fontSize = 15.sp
             )
         }
+        Text(
+            text = message.role,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
