@@ -9,6 +9,7 @@ class GPTXApp : Application() {
     }
     val okHttpClient = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
         .build()
     override fun onCreate() {
         super.onCreate()
